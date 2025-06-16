@@ -1,7 +1,7 @@
-# A self-attention driven deep leaning framework for inference of transcriptional gene regulatory networks
+# DEEP-MutOnco
 
 
-This repository contains code, data, tables and plots to support data analyses and reproduce results from the paper Distribution-agnostic Deep Learning Enables Accurate Single‐Cell Data Imputation and Transcriptional Regulation Interpretation.
+This repository contains code, data, configurations, and plots to reproduce the results of **DEEP-MutOnco: A Two-Stage Deep Learning Framework for Tumor Type Classification and Survival Prognosis**.
 - [Abstract](#abstract)
 - [Overview](#overview)
 - [System Requirements](#system-requirements)
@@ -9,16 +9,53 @@ This repository contains code, data, tables and plots to support data analyses a
 
 
 # Abstract
-The interactions between transcription factors (TFs) and the target genes could provide basis for constructing gene regulatory networks (GRNs) that modulate biological processes during development of biological cells or progressions of disease. From gene expression data, particularly single-cell transcriptomes contain rich cell-to-cell variations, it is a highly desirable to infer TF-gene interactions (TGIs) using deep learning technologies. Numerous models or software including deep leaning-based algorithms have been designed to identify transcriptional regulatory relationships between TFs and the downstream genes. However, these methods do not significantly improve predictions of GRNs due to some limitations regarding constructing underlying interactive structure linking regulatory components. In this study, we introduce a deep learning framework DeepTGI that could identify TGIs and infer the GRNs with superior performance. The DeepTGI approach encodes gene expression profiles using auto-encoder with self-attention mechanism, transforms multi-head attention modules to train the model and to predict TGIs. We evaluated DeepTGI performance by comparing with other methods using different expression datasets, cell linages and species. The comparative analysis demonstrates the superiority of DeepTGI in capturing more potential TGIs, that provide broader perspectives for discovery of more gene-gene relationships that form more biological meaningful networks.
+Precision oncology relies on linking tumor molecular profiles to clinical outcomes. We present **DEEP-MutOnco**, a two-stage method:
+
+1. **Classification stage**  
+   - Based on FT-Transformer with PPI and protein‐sequence embeddings  
+   - Trained on AACR Project GENIE v14.0 (38 cancer types; 43 971 MSK-IMPACT samples)  
+   - Outputs a 512-dimensional representation  
+
+2. **Survival stage**  
+   - Features undergo variance filtering (threshold 0.001), correlation filtering (|r|>0.95) with OS time/status, and Z-score normalization  
+   - Fitted to Cox proportional hazards on MSK-CHORD (5 cancer types; 16 377 patients)  
+   - Achieves **C-index = 0.74**  
+
+SHAP analysis identifies known drivers (e.g., TP53, KRAS) as top contributors to both tasks, providing biological insights into model decisions.
+
+---
 
 # Overview
 <div align=center>
 <img src="https://github.com/yyj971117/DeepTGI/blob/main/Overview.png" height="600" width="800">
 </div>
+1. **Datasets**  
+   - **AACR GENIE 14.0** for classification (38 tumor types; 43 971 samples)  
+   - **MSK-CHORD (Nature 2024)** for survival (5 tumor types; 16 377 samples)  
+
+2. **Features**  
+   - Binary mutation/indel, CNV focal & arm-level calls, MSI-sensor, mutational signatures  
+   - PPI network metrics: degree, PageRank, betweenness  
+   - ESM2 embeddings + Euclidean/Cosine/Manhattan distances  
+
+3. **Model Architecture**  
+   - **FT-Transformer** backbone with Squeeze-Excitation & Gated Feature Selector  
+   - **Focal Loss** to handle class imbalance  
+   - Softmax outputs over 38 classes  
+
+4. **Survival Analysis**  
+   - Variance & correlation filtering, Z-score scaling  
+   - **Cox Proportional Hazards** model  
+   - Kaplan–Meier stratification and log-rank tests  
+
+5. **Interpretability**  
+   - **Kernel SHAP** for global and per-cancer feature importance  
+
+---
 
 # System Requirements
 ## Hardware requirements
-`DeepTGI` requires only a standard computer with enough RAM to support the in-memory operations.
+`DEEP-MutOnco` requires only a standard computer with enough RAM to support the in-memory operations.
 
 ## Software requirements
 ### OS Requirements
@@ -26,7 +63,7 @@ This package is supported for *Linux*. The package has been tested on the follow
 + Linux: Ubuntu 18.04
 
 ### Python Dependencies
-`DeepTGI` mainly depends on the Python scientific stack.
+`DEEP-MutOnco` mainly depends on the Python scientific stack.
 ```
 numpy
 scipy
@@ -48,11 +85,11 @@ $ conda env create -f environment.yml
 $ conda activate deepTGI
 ```
 # Detailed tutorials with example datasets
-`DeepTGI` is a deep learning framework that utilizes autoencoders and multi-head attention mechanisms to accurately identify interactions between transcription factors and genes and infer gene regulatory networks.
+`DEEP-MutOnco` is a deep learning framework that utilizes autoencoders and multi-head attention mechanisms to accurately identify interactions between transcription factors and genes and infer gene regulatory networks.
 
 The example can be seen in the <a href="https://github.com/yyj971117/DeepTGI/tree/main/DeepTGI/program/main.py">main.py</a>.
 
-# DeepTGI
+# DEEP-MutOnco
 
 DeepTGI Model
 
