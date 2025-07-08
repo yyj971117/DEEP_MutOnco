@@ -1,756 +1,773 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[101]:
-from sklearn import metrics
-import matplotlib.pyplot as plt
-import numpy as np
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, auc, average_precision_score,precision_recall_curve
-import pandas as pd
-from sklearn.metrics import roc_curve
-
-from numpy.random import seed
-import csv
-import sqlite3
-import time
-import numpy as np
-import random
-import pandas as pd
-from pandas import DataFrame
-import scipy.sparse as sp
-import math
-import copy
-
-from sklearn.model_selection import KFold
-from sklearn.decomposition import PCA
-from sklearn.metrics import auc
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import recall_score
-from sklearn.metrics import f1_score
-from sklearn.metrics import precision_score
-from sklearn.metrics import precision_recall_curve
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import label_binarize
-from sklearn.svm import SVC
-from sklearn.model_selection import StratifiedKFold
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.decomposition import KernelPCA
-
-import sys
-import torch
-from torch import nn
-import torch.optim as optim
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
-from pytorch_lightning.callbacks import EarlyStopping
-early_stopping = EarlyStopping('val_loss', patience=3)
-from pytorch_lightning import Trainer
-from torch.optim import RAdam
-import torch.nn.functional as F
-
-import networkx as nx
-
-import warnings
-
-warnings.filterwarnings("ignore")
-
 import os
-from tensorboardX import SummaryWriter
-
-# In[102]:
-
-
-seed = 0
-random.seed(seed)
-os.environ['PYTHONHASHSEED'] = str(seed)
-np.random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
-torch.backends.cudnn.deterministic = True
-
-
-# In[103]:
-def prepare():
-    def PCC(matrix):
-        matrix = matrix.corr(method='spearman')
-        return matrix
-    a = pd.read_csv('~/DeepTGI-main/DeepTGI/dataset/scRNA-Seq/mESC/bulk_tf.csv')
-    c = pd.read_csv('~/DeepTGI-main/DeepTGI/dataset/scRNA-Seq/mESC/fc_tf.csv')
-    d = pd.read_csv('~/DeepTGI-main/DeepTGI/dataset/scRNA-Seq/mESC/bulk_gene.csv')
-    f = pd.read_csv('~/DeepTGI-main/DeepTGI/dataset/scRNA-Seq/mESC/fc_gene.csv')
-        
-    '''
-    bulk = pd.read_csv('~/mesc/ground-truth_datasets/scRNA-seq_reprogramming_FC1/allGeneTF/bulkAllEx.csv')
-    fc = pd.read_csv('~/mesc/ground-truth_datasets/scRNA-seq_reprogramming_FC1/allGeneTF/fcAllEx.csv')
-    pccBulk = PCC(bulk)
-    pccFC = PCC(fc)
-    '''
-    
-    a=PCC(a)
-    c=PCC(c)
-    d=PCC(d)
-    f=PCC(f)
-
-    pair_label = pd.read_csv('~/DeepTGI-main/DeepTGI/dataset/scRNA-Seq/mESC/label.csv')
-
-    feature_A = []
-    feature_B = []
-    label = []
-    tf_list=list(pair_label['tf'])
-    gene_list=list(pair_label['gene'])
-    tf_gene=np.array(list(zip(tf_list,gene_list)))
-
-    for i in range(57111):#len(pair_label['label'])):
-        tf, gene = pair_label.iloc[i, 0], pair_label.iloc[i, 1]
-        
-        bulk_tf, FC_tf = list(a[tf]), list(c[tf])
-        bulk_gene, FC_gene = list(d[gene]),list(f[gene])
-        
-        #bulk_tf, FC_tf = list(pccBulk[tf]), list(pccFC[tf])
-        #bulk_gene, FC_gene = list(pccBulk[gene]),list(pccFC[gene])
-        #bulk_tf, FC_tf, kegg_tf = list(a[tf]), list(c[tf]), list(b[tf])
-        #bulk_gene, FC_gene, kegg_gene = list(d[gene]),  list(f[gene]), list(e[gene])
-        
-        #A = np.hstack((bulk_tf, FC_tf, kegg_tf))
-        #B = np.hstack((bulk_gene, FC_gene, kegg_gene))
-        
-        A = np.hstack((bulk_tf, FC_tf))
-        B = np.hstack((bulk_gene, FC_gene))
-        feature_A.append(A)
-        feature_B.append(B)
-        label.append(pair_label.iloc[i, 2])
-
-    new_feature = np.hstack((feature_A, feature_B))
-    new_feature = np.array(new_feature)
-    new_label = np.array(label)
-    event_num = 1
-    print(new_feature.shape)
-    return new_feature, new_label, event_num, tf_gene
-# In[104]:
-
-
-def feature_vector(feature_name, df):
-    def Jaccard(matrix):
-        matrix = np.mat(matrix)
-
-        numerator = matrix * matrix.T
-
-        denominator = np.ones(np.shape(matrix)) * matrix.T + matrix * np.ones(np.shape(matrix.T)) - matrix * matrix.T
-
-        return numerator / denominator
-
-    all_feature = []
-    drug_list = np.array(df[feature_name]).tolist()
-    # Features for each drug, for example, when feature_name is target, drug_list=["P30556|P05412","P28223|P46098|……"]
-    for i in drug_list:
-        for each_feature in i.split('|'):
-            if each_feature not in all_feature:
-                all_feature.append(each_feature)  # obtain all the features
-    feature_matrix = np.zeros((len(drug_list), len(all_feature)), dtype=float)
-    df_feature = DataFrame(feature_matrix, columns=all_feature)  # Consrtuct feature matrices with key of dataframe
-    for i in range(len(drug_list)):
-        for each_feature in df[feature_name].iloc[i].split('|'):
-            df_feature[each_feature].iloc[i] = 1
-
-    df_feature = np.array(df_feature)
-    sim_matrix = np.array(Jaccard(df_feature))
-
-    print(feature_name + " len is:" + str(len(sim_matrix[0])))
-    return sim_matrix
-
-
-# In[105]:
-
-
-class DDIDataset(Dataset):
-    def __init__(self, x, y):
-        self.len = len(x)
-        self.x_data = torch.from_numpy(x)
-
-        self.y_data = torch.from_numpy(y)
-
-    def __getitem__(self, index):
-        return self.x_data[index], self.y_data[index]
-
-    def __len__(self):
-        return self.len
-
-
-# In[106]:
-
-
-class MultiHeadAttention(torch.nn.Module):
-    def __init__(self, input_dim, n_heads, ouput_dim=None):
-
-        super(MultiHeadAttention, self).__init__()
-        self.d_k = self.d_v = input_dim // n_heads
-        self.n_heads = n_heads
-        if ouput_dim == None:
-            self.ouput_dim = input_dim
-        else:
-            self.ouput_dim = ouput_dim
-        self.W_Q = torch.nn.Linear(input_dim, self.d_k * self.n_heads, bias=False)
-        self.W_K = torch.nn.Linear(input_dim, self.d_k * self.n_heads, bias=False)
-        self.W_V = torch.nn.Linear(input_dim, self.d_v * self.n_heads, bias=False)
-        self.fc = torch.nn.Linear(self.n_heads * self.d_v, self.ouput_dim, bias=False)
-
-    def forward(self, X):
-        ## (S, D) -proj-> (S, D_new) -split-> (S, H, W) -trans-> (H, S, W)
-        Q = self.W_Q(X).view(-1, self.n_heads, self.d_k).transpose(0, 1)
-        K = self.W_K(X).view(-1, self.n_heads, self.d_k).transpose(0, 1)
-        V = self.W_V(X).view(-1, self.n_heads, self.d_v).transpose(0, 1)
-        scores = torch.matmul(Q, K.transpose(-1, -2)) / np.sqrt(self.d_k)
-        # context: [n_heads, len_q, d_v], attn: [n_heads, len_q, len_k]
-        attn = torch.nn.Softmax(dim=-1)(scores)
-        #sing_z
-        context = torch.matmul(attn, V)
-        # context: [len_q, n_heads * d_v]
-        #cat Z
-        context = context.transpose(1, 2).reshape(-1, self.n_heads * self.d_v)
-        output = self.fc(context)
-        return output
-
-
-# In[107]:
-
-
-class EncoderLayer(torch.nn.Module):
-    def __init__(self, input_dim, n_heads):
-        super(EncoderLayer, self).__init__()
-        self.attn = MultiHeadAttention(input_dim, n_heads)
-        self.AN1 = torch.nn.LayerNorm(input_dim)
-
-        self.l1 = torch.nn.Linear(input_dim, input_dim)
-        self.AN2 = torch.nn.LayerNorm(input_dim)
-
-    def forward(self, X):
-        output = self.attn(X)
-        X = self.AN1(output + X)
-
-        output = self.l1(X)
-        X = self.AN2(output + X)
-
-        return X
-
-
-# In[108]:
-
-
-def gelu(x):
-    return x * 0.5 * (1.0 + torch.erf(x / math.sqrt(2.0)))
-
-
-# In[109]:
-
-
-class AE1(torch.nn.Module):  # Joining together
-    def __init__(self, vector_size):
-        super(AE1, self).__init__()
-
-        self.vector_size = vector_size
-
-        self.l1 = torch.nn.Linear(self.vector_size, (self.vector_size + len_after_AE) // 2)
-        self.bn1 = torch.nn.BatchNorm1d((self.vector_size + len_after_AE) // 2)
-
-        self.att2 = EncoderLayer((self.vector_size + len_after_AE) // 2, bert_n_heads)
-        self.l2 = torch.nn.Linear((self.vector_size + len_after_AE) // 2, len_after_AE)
-
-        self.l3 = torch.nn.Linear(len_after_AE, (self.vector_size + len_after_AE) // 2)
-        self.bn3 = torch.nn.BatchNorm1d((self.vector_size + len_after_AE) // 2)
-
-        self.l4 = torch.nn.Linear((self.vector_size + len_after_AE) // 2, self.vector_size)
-
-        self.dr = torch.nn.Dropout(drop_out_rating)
-        self.ac = gelu
-
-    def forward(self, X):
-        X = self.dr(self.bn1(self.ac(self.l1(X))))
-        X = self.att2(X)
-        X = self.l2(X)
-    
-        X_AE = self.dr(self.bn3(self.ac(self.l3(X))))
-
-        X_AE = self.l4(X_AE)
-
-        return X, X_AE
-
-
-# In[110]:
-
-
-class AE2(torch.nn.Module):  # twin network
-    def __init__(self, vector_size):
-        super(AE2, self).__init__()
-
-        self.vector_size = vector_size // 2
-
-        self.l1 = torch.nn.Linear(self.vector_size, (self.vector_size + len_after_AE // 2) // 2)
-        self.bn1 = torch.nn.BatchNorm1d((self.vector_size + len_after_AE // 2) // 2)
-
-        self.att2 = EncoderLayer((self.vector_size + len_after_AE // 2) // 2, bert_n_heads)
-        self.l2 = torch.nn.Linear((self.vector_size + len_after_AE // 2) // 2, len_after_AE // 2)
-
-        self.l3 = torch.nn.Linear(len_after_AE // 2, (self.vector_size + len_after_AE // 2) // 2)
-        self.bn3 = torch.nn.BatchNorm1d((self.vector_size + len_after_AE // 2) // 2)
-
-        self.l4 = torch.nn.Linear((self.vector_size + len_after_AE // 2) // 2, self.vector_size)
-
-        self.dr = torch.nn.Dropout(drop_out_rating)
-
-        self.ac = gelu
-
-    def forward(self, X):
-        X1 = X[:, 0:self.vector_size]
-        X2 = X[:, self.vector_size:]
-
-        X1 = self.dr(self.bn1(self.ac(self.l1(X1))))
-        X1 = self.att2(X1)
-        X1 = self.l2(X1)
-        X_AE1 = self.dr(self.bn3(self.ac(self.l3(X1))))
-        X_AE1 = self.l4(X_AE1)
-
-        X2 = self.dr(self.bn1(self.ac(self.l1(X2))))
-        X2 = self.att2(X2)
-        X2 = self.l2(X2)
-        X_AE2 = self.dr(self.bn3(self.ac(self.l3(X2))))
-        X_AE2 = self.l4(X_AE2)
-
-        X = torch.cat((X1, X2), 1)
-        X_AE = torch.cat((X_AE1, X_AE2), 1)
-
-        return X, X_AE
-
-
-# In[111]:
-
-
-class cov(torch.nn.Module):
-    def __init__(self, vector_size):
-        super(cov, self).__init__()
-
-        self.vector_size = vector_size
-
-        self.co2_1 = torch.nn.Conv2d(1, 1, kernel_size=(2, cov2KerSize))
-        self.co1_1 = torch.nn.Conv1d(1, 1, kernel_size=cov1KerSize)
-        self.pool1 = torch.nn.AdaptiveAvgPool1d(len_after_AE)
-
-        self.ac = gelu
-
-    def forward(self, X):
-        X1 = X[:, 0:self.vector_size // 2]
-        X2 = X[:, self.vector_size // 2:]
-
-        X = torch.cat((X1, X2), 0)
-
-        X = X.view(-1, 1, 2, self.vector_size // 2)
-
-        X = self.ac(self.co2_1(X))
-
-        X = X.view(-1, self.vector_size // 2 - cov2KerSize + 1, 1)
-        X = X.permute(0, 2, 1)
-        X = self.ac(self.co1_1(X))
-
-        X = self.pool1(X)
-
-        X = X.contiguous().view(-1, len_after_AE)
-
-        return X
-
-
-# In[112]:
-
-
-class ADDAE(torch.nn.Module):
-    def __init__(self, vector_size):
-        super(ADDAE, self).__init__()
-
-        self.vector_size = vector_size // 2
-
-        self.l1 = torch.nn.Linear(self.vector_size, (self.vector_size + len_after_AE) // 2)
-        self.bn1 = torch.nn.BatchNorm1d((self.vector_size + len_after_AE) // 2)
-
-        self.att1 = EncoderLayer((self.vector_size + len_after_AE) // 2, bert_n_heads)
-        self.l2 = torch.nn.Linear((self.vector_size + len_after_AE) // 2, len_after_AE)
-        # self.att2=EncoderLayer(len_after_AE//2,bert_n_heads)
-
-        self.l3 = torch.nn.Linear(len_after_AE, (self.vector_size + len_after_AE) // 2)
-        self.bn3 = torch.nn.BatchNorm1d((self.vector_size + len_after_AE) // 2)
-
-        self.l4 = torch.nn.Linear((self.vector_size + len_after_AE) // 2, self.vector_size)
-
-        self.dr = torch.nn.Dropout(drop_out_rating)
-
-        self.ac = gelu
-
-    def forward(self, X):
-        X1 = X[:, 0:self.vector_size]
-        X2 = X[:, self.vector_size:]
-        X = X1 + X2
-
-        X = self.dr(self.bn1(self.ac(self.l1(X))))
-
-        X = self.att1(X)
-        X = self.l2(X)
-
-        X_AE = self.dr(self.bn3(self.ac(self.l3(X))))
-
-        X_AE = self.l4(X_AE)
-        X_AE = torch.cat((X_AE, X_AE), 1)
-
-        return X, X_AE
-
-
-# In[113]:
-
-
-class BERT(torch.nn.Module):
-    def __init__(self,input_dim,n_heads,n_layers,event_num):
-        super(BERT, self).__init__()
-        
-        self.ae1=AE1(input_dim)  #Joining together
-        #self.ae2=AE2(input_dim)#twin loss
-        #self.cov=cov(input_dim)#cov 
-        #self.ADDAE=ADDAE(input_dim)
-        
-        self.dr = torch.nn.Dropout(drop_out_rating)
-        self.input_dim=input_dim
-        
-        self.layers = torch.nn.ModuleList([EncoderLayer(len_after_AE,n_heads) for _ in range(n_layers)])
-        self.AN=torch.nn.LayerNorm(len_after_AE)
-        
-        self.l1=torch.nn.Linear(len_after_AE,(len_after_AE+event_num)//2)
-        self.bn1=torch.nn.BatchNorm1d((len_after_AE+event_num)//2)
-        
-        self.l2=torch.nn.Linear((len_after_AE+event_num)//2,event_num)
-        
-        self.ac=gelu
-
-    def forward(self, X):
-        X1, X_AE1 = self.ae1(X)
-        #X2, X_AE2 = self.ae2(X)
-
-        #X3 = self.cov(X)
-
-        #X4, X_AE4 = self.ADDAE(X)
-
-        #X5 = X1 + X2 + X3 + X4
-
-        #X = torch.cat((X1, X2, X3, X4, X5), 1)
-        X = X1
-
-        #for layer in self.layers:
-        #    X = layer(X)
-        #X = self.AN(X)
-
-        X = self.dr(self.bn1(self.ac(self.l1(X))))
-
-        X = self.l2(X)
-
-        return X, X_AE1
-
-
-# In[114]:
-
-class focal_loss(nn.Module):
-    def __init__(self, gamma=2):
-        super(focal_loss, self).__init__()
-
-        self.gamma = gamma
-
-    def forward(self, preds, labels):
-        # assert preds.dim() == 2 and labels.dim()==1
-        labels = labels.view(-1, 1)  # [B * S, 1]
-        preds = preds.view(-1, preds.size(-1))  # [B * S, C]
-
-        preds_logsoft = F.log_softmax(preds, dim=1)  # 先softmax, 然后取log
-        preds_softmax = torch.exp(preds_logsoft)  # softmax
-
-        preds_softmax = preds_softmax.gather(1, labels)  # 这部分实现nll_loss ( crossempty = log_softmax + nll )
-        preds_logsoft = preds_logsoft.gather(1, labels)
-
-        loss = -torch.mul(torch.pow((1 - preds_softmax), self.gamma),
-                          preds_logsoft)  # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
-
-        loss = loss.mean()
-
-        return loss
-
-class BCEFocalLoss(torch.nn.Module):
-    def __init__(self, gamma=2, alpha=0.25, reduction='mean'):
-        super(BCEFocalLoss, self).__init__()
-        self.gamma = gamma
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
+from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+import numpy as np
+import networkx as nx
+from tqdm import tqdm
+import optuna
+from sklearn.metrics import (accuracy_score, precision_score, recall_score,
+                             f1_score, roc_auc_score, average_precision_score)
+
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+
+import time
+import csv
+import shap
+import matplotlib
+matplotlib.use('Agg')  
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+
+
+class SqueezeExcitation(nn.Module):
+    def __init__(self, embed_dim, reduction=16):
+        super(SqueezeExcitation, self).__init__()
+        self.fc1 = nn.Linear(embed_dim, embed_dim // reduction)
+        self.fc2 = nn.Linear(embed_dim // reduction, embed_dim)
+
+    def forward(self, x):
+        z = x.mean(dim=1)
+        z = torch.relu(self.fc1(z))
+        z = torch.sigmoid(self.fc2(z))
+        return x * z.unsqueeze(1)
+
+class FTTransformerBlock(nn.Module):
+    def __init__(self, embed_dim, num_heads, ff_dim, dropout_rate=0.1):
+        super(FTTransformerBlock, self).__init__()
+        self.attention = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
+        self.ffn = nn.Sequential(
+            nn.Linear(embed_dim, ff_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(ff_dim, embed_dim),
+            nn.Dropout(dropout_rate)
+        )
+        self.se = SqueezeExcitation(embed_dim)
+        self.norm1 = nn.LayerNorm(embed_dim)
+        self.norm2 = nn.LayerNorm(embed_dim)
+
+    def forward(self, x):
+        attn_output, _ = self.attention(x, x, x)
+        x = self.norm1(x + attn_output)
+        ffn_output = self.ffn(x)
+        ffn_output = self.se(ffn_output)
+        x = self.norm2(x + ffn_output)
+        return x
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+        super(FocalLoss, self).__init__()
         self.alpha = alpha
+        self.gamma = gamma
         self.reduction = reduction
 
-    def forward(self, predict, target):
-        pt = torch.sigmoid(predict) # sigmoide获取概率
-        #在原始ce上增加动态权重因子，注意alpha的写法，下面多类时不能这样使用
-        loss = - self.alpha * (1 - pt) ** self.gamma * target * torch.log(pt) - (1 - self.alpha) * pt ** self.gamma * (1 - target) * torch.log(1 - pt)
+    def forward(self, logits, targets):
+        ce_loss = F.cross_entropy(logits, targets, reduction='none')
+        pt = torch.exp(-ce_loss)
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
 
         if self.reduction == 'mean':
-            loss = torch.mean(loss)
+            return focal_loss.mean()
         elif self.reduction == 'sum':
-            loss = torch.sum(loss)
-        return loss
-
-class my_loss1(nn.Module):
-    def __init__(self):
-        super(my_loss1, self).__init__()
-
-        self.criteria1 = torch.nn.BCEWithLogitsLoss()
-        self.criteria2 = torch.nn.MSELoss()
-
-    def forward(self, X, target, inputs, X_AE1):
-        loss = calssific_loss_weight * self.criteria1(X, target.float()) + \
-               self.criteria2(inputs.float(), X_AE1) 
-        return loss
-
-
-class my_loss2(nn.Module):
-    def __init__(self):
-        super(my_loss2, self).__init__()
-
-        self.criteria1 =  BCEFocalLoss()
-        self.criteria2 = torch.nn.MSELoss()
-
-    def forward(self, X, target, inputs, X_AE1):
-        loss = calssific_loss_weight * self.criteria1(X, target) + \
-               self.criteria2(inputs.float(), X_AE1) 
-        return loss
-
-
-def mixup(x1, x2, y1, y2, alpha):
-    beta = np.random.beta(alpha, alpha)
-    x = beta * x1 + (1 - beta) * x2
-    y = beta * y1 + (1 - beta) * y2
-    return x, y
-
-
-# In[115]:
-
-
-def BERT_train(model, x_train, y_train, x_test, y_test, event_num):
-    model_optimizer = RAdam(model.parameters(), lr=learn_rating, weight_decay=weight_decay_rate)
-    model = torch.nn.DataParallel(model)
-    model = model.to(device)
-
-    x_train = np.vstack((x_train, np.hstack((x_train[:, len(x_train[0]) // 2:], x_train[:, :len(x_train[0]) // 2]))))
-    y_train = np.hstack((y_train, y_train))
-    np.random.seed(seed)
-    np.random.shuffle(x_train)
-    np.random.seed(seed)
-    np.random.shuffle(y_train)
-
-    len_train = len(y_train)
-    len_test = len(y_test)
-    print("arg train len", len(y_train))
-    print("test len", len(y_test))
-
-    train_dataset = DDIDataset(x_train, np.array(y_train))
-    test_dataset = DDIDataset(x_test, np.array(y_test))
-    train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
-
-    for epoch in range(epo_num):
-        if epoch < epoch_changeloss:
-            my_loss = my_loss1()
+            return focal_loss.sum()
         else:
-            my_loss = my_loss1()
+            return focal_loss
 
-        running_loss = 0.0
+class FTTransformer(nn.Module):
+    def __init__(self, num_features, num_classes, embed_dim, num_heads, ff_dim, num_layers, dropout_rate):
+        super(FTTransformer, self).__init__()
+        self.embedding = nn.Sequential(
+            nn.Linear(num_features, embed_dim),
+            nn.Dropout(dropout_rate)
+        )
+        self.transformer_layers = nn.ModuleList([
+            FTTransformerBlock(embed_dim, num_heads, ff_dim, dropout_rate) for _ in range(num_layers)
+        ])
+        self.classifier = nn.Sequential(
+            nn.Linear(embed_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(128, num_classes)
+        )
 
+    def forward(self, x):
+        if len(x.shape) == 2:
+            x = x.unsqueeze(1)
+        x = self.embedding(x)
+        for layer in self.transformer_layers:
+            x = layer(x)
+        x = x.mean(dim=1)
+        return self.classifier(x)
+
+def initialize_weights(model):
+    for module in model.modules():
+        if isinstance(module, nn.Linear):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+
+def calculate_global_network_attributes(ppi_df):
+    import networkx as nx
+    G = nx.Graph()
+    for _, row in ppi_df.iterrows():
+        G.add_edge(row['node1'], row['node2'], weight=row['combined_score'])
+
+    degree_centrality = nx.degree_centrality(G)
+    pagerank = nx.pagerank(G)
+    betweenness_centrality = nx.betweenness_centrality(G)
+    return degree_centrality, pagerank, betweenness_centrality
+
+def calculate_gene_impact_scores(ppi_df, increment=0.1):
+    all_genes = set(ppi_df['node1']).union(set(ppi_df['node2']))
+    impact_scores = {gene: 0 for gene in all_genes}
+    for _, row in ppi_df.iterrows():
+        gene1, gene2 = row['node1'], row['node2']
+        impact_scores[gene1] += increment
+        impact_scores[gene2] += increment
+    return impact_scores
+
+def calculate_patient_ppi_features(patient_mutations, impact_scores, global_attributes, genes):
+    degree_centrality, pagerank, betweenness_centrality = global_attributes
+    patient_ppi_features = np.array([
+        (impact_scores.get(gene, 0) if patient_mutations.get(gene, 0) == 1 else 0) +
+        degree_centrality.get(gene, 0) +
+        pagerank.get(gene, 0) +
+        betweenness_centrality.get(gene, 0)
+        for gene in genes
+    ])
+    return patient_ppi_features
+
+class GatedFeatureSelector(nn.Module):
+    def __init__(self, input_dim, reduction=16, stages=3):
+        super(GatedFeatureSelector, self).__init__()
+        self.stages = stages
+        self.layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(input_dim, input_dim // reduction),
+                nn.ReLU(),
+                nn.Linear(input_dim // reduction, input_dim),
+                nn.Sigmoid()
+            ) for _ in range(stages)
+        ])
+
+    def forward(self, x):
+        for layer in self.layers:
+            weights = layer(x.mean(dim=0))
+            x = x * weights.unsqueeze(0)
+        return x
+
+def process_data_with_global_attributes(data_train, data_test, ppi_df, genes, device):
+    impact_scores = calculate_gene_impact_scores(ppi_df)
+    global_attributes = calculate_global_network_attributes(ppi_df)
+
+    train_ppi_features = np.array([
+        calculate_patient_ppi_features(patient[genes].to_dict(), impact_scores, global_attributes, genes)
+        for _, patient in data_train.iterrows()
+    ])
+    test_ppi_features = np.array([
+        calculate_patient_ppi_features(patient[genes].to_dict(), impact_scores, global_attributes, genes)
+        for _, patient in data_test.iterrows()
+    ])
+
+    train_features = np.hstack([data_train.values, train_ppi_features])
+    test_features = np.hstack([data_test.values, test_ppi_features])
+
+    gated_selector = GatedFeatureSelector(train_features.shape[1]).to(device)
+    gated_selector.eval()
+
+    train_features_tensor = torch.tensor(train_features, dtype=torch.float32).to(device)
+    test_features_tensor = torch.tensor(test_features, dtype=torch.float32).to(device)
+    with torch.no_grad():
+        train_features = gated_selector(train_features_tensor).cpu().numpy()
+        test_features = gated_selector(test_features_tensor).cpu().numpy()
+
+    return train_features, test_features
+def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, num_epochs, device, trial_number=None, patience=100, test_loader=None):
+    history = {'train_loss': [], 'val_loss': [], 'val_acc': [], 'train_acc': [], 'auc': [], 'aupr': []}
+    best_val_loss = float('inf')
+    epochs_no_improve = 0
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5)
+
+    for epoch in range(num_epochs):
         model.train()
-        for batch_idx, data in enumerate(train_loader, 0):
-            x, y = data
-
-            lam = np.random.beta(0.5, 0.5)
-            index = torch.randperm(x.size()[0]).to(x.device)  # 确保 index 在与 x 相同的设备上
-            inputs = lam * x + (1 - lam) * x[index, :]
-
-            targets_a, targets_b = y, y[index]
-
-            inputs = inputs.to(device)
-            targets_a = targets_a.to(device).unsqueeze(1)
-            targets_b = targets_b.to(device).unsqueeze(1)
-
-            model_optimizer.zero_grad()
-            X, X_AE1 = model(inputs.float())
-            loss = lam * my_loss(X, targets_a, inputs, X_AE1) + (1 - lam) * my_loss(X, targets_b, inputs, X_AE1)
-
+        train_loss = 0.0
+        correct_train, total_train = 0, 0
+        for x_batch, y_batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs} - Training"):
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            optimizer.zero_grad()
+            output = model(x_batch)
+            loss = criterion(output, y_batch)
             loss.backward()
-            model_optimizer.step()
-            running_loss += loss.item()
+            optimizer.step()
+            train_loss += loss.item()
+
+            _, predicted = torch.max(output, dim=1)
+            correct_train += (predicted == y_batch).sum().item()
+            total_train += y_batch.size(0)
+
+        train_loss /= len(train_loader)
+        history['train_loss'].append(train_loss)
+        train_acc = correct_train / total_train if total_train > 0 else 0.0
+        history['train_acc'].append(train_acc)
 
         model.eval()
-        testing_loss = 0.0
+        val_loss, correct_val, total_val = 0.0, 0, 0
+        all_probs = []
+        all_true_labels = []
+        
         with torch.no_grad():
-            for batch_idx, data in enumerate(test_loader, 0):
-                inputs, target = data
+            for x_batch, y_batch in val_loader:
+                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+                output = model(x_batch)
+                val_loss += criterion(output, y_batch).item()
+                _, predicted = torch.max(output, dim=1)
+                correct_val += (predicted == y_batch).sum().item()
+                total_val += y_batch.size(0)
 
-                inputs = inputs.to(device)
+                # 保存真实标签和预测的概率，以计算 AUC 和 AUPR
+                all_true_labels.extend(y_batch.cpu().numpy())
+                all_probs.extend(F.softmax(output, dim=1).cpu().numpy())
 
-                target = target.to(device).unsqueeze(1)
+        val_loss /= len(val_loader)
+        val_acc = correct_val / total_val if total_val > 0 else 0.0
+        history['val_loss'].append(val_loss)
+        history['val_acc'].append(val_acc)
 
-                X, X_AE1 = model(inputs.float())
-                loss = my_loss(X, target, inputs, X_AE1)
-                testing_loss += loss.item()
-        print('epoch [%d] loss: %.6f testing_loss: %.6f ' % (
-        epoch + 1, running_loss / len_train, testing_loss / len_test))
+        # 计算 AUC 和 AUPR
+        try:
+            auc = roc_auc_score(all_true_labels, all_probs, multi_class='ovr')
+        except ValueError:
+            auc = 0.0
 
-    pre_score = np.zeros((0, event_num), dtype=float)
-    model.eval()
-    with torch.no_grad():
-        for batch_idx, data in enumerate(test_loader, 0):
-            inputs, _ = data
-            inputs = inputs.to(device)
-            X, _ = model(inputs.float())
-            pre_score = np.vstack((pre_score, X.cpu().numpy()))
-    return pre_score
+        try:
+            aupr = average_precision_score(all_true_labels, all_probs, average='macro')
+        except ValueError:
+            aupr = 0.0
+        
+        history['auc'].append(auc)
+        history['aupr'].append(aupr)
 
+        scheduler.step(val_loss)
 
-def cal_metrics(label,pred):
+        print(f"Epoch [{epoch + 1}/{num_epochs}] - "
+              f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, "
+              f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, "
+              f"AUC: {auc:.4f}, AUPR: {aupr:.4f}")
 
-    def Find_Optimal_Cutoff(TPR, FPR, threshold):
-        y = TPR - FPR
-        Youden_index = np.argmax(y)  # Only the first occurrence is returned.
-        optimal_threshold = threshold[Youden_index]
-        point = [FPR[Youden_index], TPR[Youden_index]]
-        return optimal_threshold
+        # 正确的写法：使用 f-string 格式化
+        plt.plot(history['train_loss'], label=f'Train Loss = {history["train_loss"][-1]:.4f}', linestyle='-', color='blue')
+        plt.plot(history['val_loss'], label=f'Validation Loss = {history["val_loss"][-1]:.4f}', linestyle='-', color='red')
 
-    pred_one=[]
-    fpr, tpr, thresholds = metrics.roc_curve(label,pred, pos_label=1)
-    thre=Find_Optimal_Cutoff(tpr, fpr, thresholds)
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.title('Training and Validation Loss')
+        plt.savefig('loss_curve1.png', dpi=300)
+        plt.close()
 
-    for i in pred:
-        if i>thre:
-            pred_one.append(1)
+        plt.plot(history['train_acc'], label=f'Train Accuracy = {history["train_acc"][-1]:.4f}', linestyle='-', color='green')
+        plt.plot(history['val_acc'], label=f'Validation Accuracy = {history["val_acc"][-1]:.4f}', linestyle='-', color='orange')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        plt.title('Training and Validation Accuracy')
+        plt.savefig('accuracy_curve1.png', dpi=300)
+        plt.close()
+
+        plt.plot(history['auc'], label=f'AUC = {history["auc"][-1]:.4f}', linestyle='-', color='purple')
+        plt.plot(history['aupr'], label=f'AUPR = {history["aupr"][-1]:.4f}', linestyle='-', color='pink')
+        plt.xlabel('Epoch')
+        plt.ylabel('Score')
+        plt.legend()
+        plt.title('AUC and AUPR over Epochs')
+        plt.savefig('auc_aupr_curve.png', dpi=300)
+        plt.close()
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            epochs_no_improve = 0
+            if trial_number is not None:
+                torch.save(model.state_dict(), f"best_model_trial{trial_number}.pth")
         else:
-            pred_one.append(0)
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                print(f"Early stopping at epoch {epoch + 1}")
+                break
 
-    auc=metrics.auc(fpr, tpr)
-    acc=accuracy_score(label,pred_one)
-    recall=recall_score(label,pred_one)
-    precision=precision_score(label,pred_one)
-    f1=f1_score(label,pred_one)
-    #precision_, recall_, thresholds_ = precision_recall_curve(label,pred_one)
-    aupr=average_precision_score(label, pred)
-    return auc,acc,recall,precision,f1,aupr
+    if test_loader is not None:
+        model.eval()
+        true_labels_list = []
+        predicted_probs_list = []
 
-# In[117]:
-def cross_val(feature, label, event_num, tf_gene):
-    skf = StratifiedKFold(n_splits=cross_ver_tim)
-    y_true = np.array([])
-    y_score = np.zeros((0, event_num), dtype=float)
-    y_pred = np.array([])
-    results=[]
-    result=np.zeros(6)
-    tf_gene = pd.DataFrame(tf_gene)
-    tf_gene.columns = ['tf','gene']
-    tf_gene['label'] = label
-    idx = 0
-    for train_index, test_index in skf.split(feature, label):
-        model = BERT(len(feature[0]), bert_n_heads, bert_n_layers, event_num)
-        X_train, X_test = feature[train_index], feature[test_index]
-        y_train, y_test = label[train_index], label[test_index]
+        with torch.no_grad():
+            for x_batch, y_batch in test_loader:
+                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+                output = model(x_batch)
+                probs = F.softmax(output, dim=1).cpu().numpy()
+                predicted_probs_list.append(probs)
+                true_labels_list.extend(y_batch.cpu().numpy())
 
-        print("train len", len(y_train))
-        print("test len", len(y_test))
+        predicted_probs_array = np.vstack(predicted_probs_list)  # shape = [n_samples, n_classes]
+        true_labels_array = np.array(true_labels_list)  # shape = [n_samples,]
+
+        try:
+            auc_test = roc_auc_score(true_labels_array, predicted_probs_array, multi_class='ovr')
+        except ValueError:
+            auc_test = None
+
+        try:
+            aupr_test = average_precision_score(true_labels_array, predicted_probs_array, average='macro')
+        except ValueError:
+            aupr_test = None
+
+        print(f"Final AUC on Test Set: {auc_test:.4f}")
+        print(f"Final AUPR on Test Set: {aupr_test:.4f}")
         
-        '''
-        train_set = tf_gene.loc[train_index]
-        val_set = train_set.sample(3000)
 
-        train_set = train_set.append(val_set)
-        train_set = train_set.drop_duplicates(keep=False)
-        test_set =  tf_gene.loc[test_index]
+    return history
 
-        train_set.to_csv('./new_train_test_set/fold%d/train_set.csv'%idx,index=False)
-        val_set.to_csv('./new_train_test_set/fold%d/val_set.csv'%idx,index=False)
-        test_set.to_csv('./new_train_test_set/fold%d/test_set.csv'%idx,index=False)
+
+import optuna
+import numpy as np
+
+class MockTrial:
+    def __init__(self, params, trial_number=None):
+        self._params = params
+        self.number = trial_number  # Add the 'number' attribute
+
+    def suggest_categorical(self, name, choices):
+        return self._params.get(name)
+
+    def suggest_int(self, name, low, high, step=1):
+        return self._params.get(name)
+
+    def suggest_float(self, name, low, high, step=0.1, log=False):
+        value = self._params.get(name)
+        if log:
+            # If log=True, transform to log scale
+            return np.exp(value)
+        else:
+            return value
+
+# Example of setting trial number
+manual_params = {
+    'embed_dim': 512,
+    'num_heads': 2,
+    'ff_dim': 768,
+    'dropout_rate': 0.27257709513888054,
+    'lr': np.log(1e-5)  # manually passing log-scaled value
+}
+
+# Instantiate MockTrial with a trial number
+manual_trial = MockTrial(manual_params, trial_number=0)
+from sklearn.metrics import roc_auc_score, average_precision_score, precision_recall_curve, auc
+from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
+import pandas as pd
+import numpy as np
+def objective(trial):
+    n_classes = 38
+    import time
+    start_time = time.time()
+
+    embed_dim = trial.suggest_categorical("embed_dim", [128, 256, 512])
+    num_heads_choices = [h for h in [1, 2, 4, 8, 16, 32, 64, 128] if embed_dim % h == 0]
+    if not num_heads_choices:
+        raise optuna.exceptions.TrialPruned()
+    num_heads = trial.suggest_categorical("num_heads", num_heads_choices)
+    ff_dim = trial.suggest_int("ff_dim", 256, 1024, step=256)
+    dropout_rate = trial.suggest_float("dropout_rate", 0.1, 0.3)
+    lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
+    data_train = pd.read_csv('~/GDD_ENS/ft_train_with_new_features.csv', sep=',', index_col=0)
+    data_test = pd.read_csv('~/GDD_ENS/ft_test_with_new_features.csv', sep=',', index_col=0)
+    labels_train = pd.read_csv('~/GDD_ENS/output/labels_train.csv', sep=',', index_col=0).squeeze('columns')
+    labels_test = pd.read_csv('~/GDD_ENS/output/labels_test.csv', sep=',', index_col=0).squeeze('columns')
+
+    genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
+    ppi_df = pd.read_csv('string_interactions.tsv', sep='\t')
+
+    train_features, test_features = process_data_with_global_attributes(data_train, data_test, ppi_df, genes, device)
+    print("Train features shape:", train_features.shape)
+    print("Test features shape:", test_features.shape)
+
+    original_feature_names = data_train.columns.tolist()
+    ppi_feature_names = genes
+    feature_names = original_feature_names + ppi_feature_names
+    print("len(feature_names) =", len(feature_names))
+
+    n_features = train_features.shape[1]
+    n_types = len(set(labels_train))
+
+    from sklearn.preprocessing import LabelEncoder
+    encoder = LabelEncoder()
+    encoded_labels_train = encoder.fit_transform(labels_train)
+    encoded_labels_test = encoder.transform(labels_test)
+
+    n_splits = 5
+    fold_results = []
+    fold_results_file = "fold_results_trial.csv"
+
+    from sklearn.model_selection import StratifiedShuffleSplit
+    sss = StratifiedShuffleSplit(n_splits=n_splits, random_state=0)
+    train_index_list, val_index_list = [], []
+    for train_index, val_index in sss.split(train_features, encoded_labels_train):
+        train_index_list.append(train_index)
+        val_index_list.append(val_index)
+
+    for fold in range(n_splits):
+        print(f"\nTraining Fold {fold + 1}/{n_splits}")
+        fold_train_x = torch.tensor(train_features[train_index_list[fold]], dtype=torch.float32)
+        fold_val_x = torch.tensor(train_features[val_index_list[fold]], dtype=torch.float32)
+        fold_train_y = torch.tensor(encoded_labels_train[train_index_list[fold]], dtype=torch.long)
+        fold_val_y = torch.tensor(encoded_labels_train[val_index_list[fold]], dtype=torch.long)
+
+        x_test = torch.tensor(test_features, dtype=torch.float32)
+        y_test = torch.tensor(encoded_labels_test, dtype=torch.long)
+
+        train_dataset = TensorDataset(fold_train_x, fold_train_y)
+        val_dataset = TensorDataset(fold_val_x, fold_val_y)
+        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False)
+
+        model = FTTransformer(
+            num_features=n_features,
+            num_classes=n_types,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            ff_dim=ff_dim,
+            num_layers=8,
+            dropout_rate=dropout_rate
+        ).to(device)
+
+        initialize_weights(model)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+        criterion = FocalLoss(alpha=1, gamma=2)
+
+        history = train_and_evaluate(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            optimizer=optimizer,
+            criterion=criterion,
+            num_epochs=150,
+            device=device,
+            trial_number=trial.number,
+            patience=100
+        )
 
         
-        print(train_set)
-        print(val_set)
-        print(test_set)
-        '''
-        idx += 1
+        model.eval()
+        true_labels_list = []
+        predicted_probs_list = []
+        predicted_labels_list = []
 
-        pred_score = BERT_train(model, X_train, y_train, X_test, y_test, event_num)
-        result_=np.array(cal_metrics(y_test,F.sigmoid(torch.Tensor(pred_score))))
-        print(result_)
-        result += np.array(result_)
+        with torch.no_grad():
+            test_dataset_new = TensorDataset(x_test, y_test)
+            test_loader_new = DataLoader(test_dataset_new, batch_size=32, shuffle=False)
+            for x_batch, y_batch in test_loader_new:
+                x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+                output = model(x_batch)
+                probs = F.softmax(output, dim=1).cpu().numpy()
+                _, predicted = torch.max(output, dim=1)
+                predicted_labels_list.extend(predicted.cpu().numpy())
+                true_labels_list.extend(y_batch.cpu().numpy())
+                predicted_probs_list.append(probs)
+
         
-    #torch.save(model,'ckpy_deeptti.pth')
-    result=(result/5)
-    print('AUC:',result[0])
-    print('ACC:',result[1])
-    print('Recall:',result[2])
-    print('Precision:',result[3])
-    print('F1:',result[4])
-    print('AUPR:',result[5])
-    #print('y_true',y_true)
-    #result_all, result_eve = evaluate(y_pred, y_score, y_true, event_num)
+        predicted_probs_array = np.vstack(predicted_probs_list)  # shape = [n_samples, n_classes]
+        true_labels_array = np.array(true_labels_list)  # shape = [n_samples,]
 
-    #i#iireturn result_all, result_eve
+        acc = accuracy_score(true_labels_array, predicted_labels_list)
+        precision = precision_score(true_labels_array, predicted_labels_list, average='weighted', zero_division=1)
+        recall = recall_score(true_labels_array, predicted_labels_list, average='weighted', zero_division=1)
+        f1 = f1_score(true_labels_array, predicted_labels_list, average='weighted')
+        
+        try:
+            auc_val = roc_auc_score(true_labels_array, predicted_probs_array, multi_class='ovr')
+        except ValueError:
+            auc_val = None
+        try:
+            aupr_val = average_precision_score(true_labels_array, predicted_probs_array, average='macro')
+        except ValueError:
+            aupr_val = None
 
-# In[118]:
+        fold_result = {
+            'trial_number': trial.number,
+            'fold': fold + 1,
+            'accuracy': acc,
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'auc': auc_val if auc_val is not None else 0.0,
+            'aupr': aupr_val if aupr_val is not None else 0.0
+        }
+        fold_results.append(fold_result)
+        
+      
+        fold_results_file = "fold_results_trial.csv"
+        with open(fold_results_file, mode='a', newline='') as f:
+            writer = csv.writer(f)
+            if os.stat(fold_results_file).st_size == 0:
+                writer.writerow(['Trial Number', 'Fold', 'Accuracy', 'Precision', 'Recall', 'F1', 'AUC', 'AUPR'])
+            writer.writerow([
+                fold_result['trial_number'],
+                fold_result['fold'],
+                fold_result['accuracy'],
+                fold_result['precision'],
+                fold_result['recall'],
+                fold_result['f1'],
+                fold_result['auc'],
+                fold_result['aupr']
+            ])
+
+        fpr_all, tpr_all, roc_auc_all = {}, {}, {}
+        for i in range(n_classes):
+            fpr_all[i], tpr_all[i], _ = roc_curve(true_labels_array == i, predicted_probs_array[:, i])
+            roc_auc_all[i] = auc(fpr_all[i], tpr_all[i])
+
+        plt.figure(figsize=(16, 12))
+        for i in range(n_classes):
+            plt.plot(fpr_all[i], tpr_all[i], label=f'{encoder.classes_[i]}: AUC = {roc_auc_all[i]:.2f}')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Overall Receiver Operating Characteristic (ROC) Curve')
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
+        plt.tight_layout()
+        plt.savefig('overall_roc_curve.png', dpi=300)
+        plt.close()
 
 
-file_path="/home/zhongle/Data/"
+        precision_all, recall_all, pr_auc_all = {}, {}, {}
+        for i in range(n_classes):
+            precision_all[i], recall_all[i], _ = precision_recall_curve(true_labels_array == i, predicted_probs_array[:, i])
+            pr_auc_all[i] = auc(recall_all[i], precision_all[i])
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        plt.figure(figsize=(16, 12))
+        for i in range(n_classes):
+            plt.plot(recall_all[i], precision_all[i], label=f'{encoder.classes_[i]}: AUPR = {pr_auc_all[i]:.2f}')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title('Overall Precision-Recall Curve')
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
+        plt.tight_layout()
+        plt.savefig('overall_aupr_curve.png', dpi=300)
+        plt.close()
+        
+        plt.figure(figsize=(16, 12))
+        for i in range(n_classes):
+            fpr, tpr, _ = roc_curve(true_labels_array == i, predicted_probs_array[:, i])
+            roc_auc = auc(fpr, tpr)
+            plt.plot(fpr, tpr, label=f'{encoder.classes_[i]}: AUC = {roc_auc:.2f}')
+        
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')  # 绘制随机猜测的对角线
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic (ROC) Curve for Each Class')
+        plt.legend(loc='lower right', fontsize=10)
+        plt.tight_layout()
+        plt.savefig('test_auc_curve.png', dpi=300)
+        plt.close()
 
-bert_n_heads=4
-bert_n_layers=2
-drop_out_rating=0.3
-batch_size=256
-len_after_AE= 400
-learn_rating=0.00001
-epo_num=80
-cross_ver_tim=5
-cov2KerSize=50
-cov1KerSize=25
-calssific_loss_weight=5
-epoch_changeloss = epo_num // 3
-weight_decay_rate=0.0001
+        plt.figure(figsize=(16, 12))
+        for i in range(n_classes):
+            precision_i, recall_i, _ = precision_recall_curve(true_labels_array == i, predicted_probs_array[:, i])
+            aupr = auc(recall_i, precision_i)
+            plt.plot(recall_i, precision_i, label=f'{encoder.classes_[i]}: AUPR = {aupr:.2f}')
+        
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title('Precision-Recall Curve for Each Class')
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)  # 将图例移到图外
+        plt.tight_layout() 
+        plt.savefig('test_aupr_curve.png', dpi=300)
+        plt.close()
+        
+        cm = confusion_matrix(true_labels_array, predicted_labels_list)
+        plt.figure(figsize=(16, 12))
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=encoder.classes_, yticklabels=encoder.classes_)
+        plt.xlabel('Predicted Labels')
+        plt.ylabel('True Labels')
+        plt.title('Confusion Matrix')
+        plt.tight_layout()
+        plt.savefig('confusion_matrix.png', dpi=300)
+        plt.close()
+        
+        
+        plt.figure(figsize=(16, 12)) 
+        for i in range(n_classes):
+            precision_i, recall_i, _ = precision_recall_curve(true_labels_array == i, predicted_probs_array[:, i])
+            
+            max_precision_idx = np.argmax(precision_i)
+            max_recall_idx = np.argmax(recall_i)
+            
+            plt.plot(recall_i, precision_i, label=f'{encoder.classes_[i]}: Precision = {precision_i[max_precision_idx]:.2f}, Recall = {recall_i[max_recall_idx]:.2f}')
+            
+            plt.annotate(f'{precision_i[max_precision_idx]:.2f}, {recall_i[max_recall_idx]:.2f}',
+                         (recall_i[max_recall_idx], precision_i[max_precision_idx]),
+                         textcoords="offset points", xytext=(0, 10), ha='center')
+        
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title('Precision-Recall Curve for Each Class')
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)  # 图例移到图外，避免重叠
+        plt.tight_layout()  
+        plt.savefig('precision_recall_curve.png', dpi=300)
+        plt.close()
 
-def save_result(filepath,result_type,result):
-    with open(filepath+result_type +'task1'+ '.csv', "w", newline='',encoding='utf-8') as csvfile:
-        writer = csv.writer(csvfile)
-        for i in result:
-            writer.writerow(i)
-    return 0
+
+        
+        fpr, tpr, _ = roc_curve(true_labels_array == 1, predicted_probs_array[:, 1])
+        roc_auc_val = auc(fpr, tpr)
+        plt.figure()
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC (AUC = {roc_auc_val:.2f})')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title(f'ROC Curve')
+        plt.legend(loc='lower right')
+        plt.savefig(f'roc_curve_fold_{fold+1}.png')
+        plt.close()
+
+    print("\nCross-validation results:")
+    best_fold = max(fold_results, key=lambda x: x['accuracy'])
+    for result in fold_results:
+        print(f"Fold {result['fold']}: Accuracy: {result['accuracy']:.4f}, "
+              f"Precision: {result['precision']:.4f}, Recall: {result['recall']:.4f}, "
+              f"F1: {result['f1']:.4f}, AUC: {result['auc']:.4f}, AUPR: {result['aupr']:.4f}")
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    results_file = "trials_results.csv"
+    if not os.path.exists(results_file):
+        with open(results_file, mode="w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Trial Number", "Embed Dim", "Num Heads", "FF Dim", "Dropout Rate", "Learning Rate", "Best Accuracy", "Elapsed Time"])
+
+    with open(results_file, mode="a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([trial.number, embed_dim, num_heads, ff_dim, dropout_rate, lr, best_fold['accuracy'], elapsed_time])
+
+    print(f"Total execution time for trial {trial.number}: {elapsed_time:.2f} seconds")
+    return best_fold['accuracy']
+
+objective(manual_trial)
 
 
-# In[119]:
-
-
-def main():
+if __name__ == "__main__":
     
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=10)
+    print("最佳超参数:", study.best_params)
+    print("验证集最佳准确率:", study.best_value)
+
+    best_params = study.best_params
+    embed_dim = best_params["embed_dim"]
+    num_heads = best_params["num_heads"]
+    ff_dim = best_params["ff_dim"]
+    dropout_rate = best_params["dropout_rate"]
+    lr = best_params["lr"]
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+ 
+    data_train = pd.read_csv('~/GDD_ENS/ft_train_with_new_features.csv', sep=',', index_col=0)
+    data_test = pd.read_csv('~/GDD_ENS/ft_test_with_new_features.csv', sep=',', index_col=0)
+    labels_train = pd.read_csv('~/GDD_ENS/output/labels_train.csv', sep=',', index_col=0).squeeze('columns')
+    labels_test = pd.read_csv('~/GDD_ENS/output/labels_test.csv', sep=',', index_col=0).squeeze('columns')
+
     
-    new_feature, new_label, event_num, tf_gene=prepare()
-    np.random.seed(seed)
-    np.random.shuffle(new_feature)
-    np.random.seed(seed)
-    np.random.shuffle(new_label)
-    np.random.seed(seed)
-    np.random.shuffle(tf_gene)
-    print("dataset len", len(new_feature))
+    genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
+    ppi_df = pd.read_csv('string_interactions.tsv', sep='\t')
+
     
-    start=time.time()
-    cross_val(new_feature,new_label,event_num,tf_gene)
-    #result_all, result_eve=cross_val(new_feature,new_label,event_num,tf_gene)
-    print("time used:", (time.time() - start) / 3600)
-    #save_result(file_path,"all",result_all)
-    #save_result(file_path,"each",result_eve)
+    train_features, test_features = process_data_with_global_attributes(
+        data_train, data_test, ppi_df, genes, device
+    )
+    print("Train features shape:", train_features.shape)
+    print("Test features shape:", test_features.shape)
 
+    
+    original_feature_names = data_train.columns.tolist()
+    ppi_feature_names = genes
+    feature_names = original_feature_names + ppi_feature_names
+    print("len(feature_names) =", len(feature_names))
 
-# In[120]:
+    n_features = train_features.shape[1]
+    n_types = len(set(labels_train))
 
+    
+    encoder = LabelEncoder()
+    encoded_labels_train = encoder.fit_transform(labels_train)
+    encoded_labels_test = encoder.transform(labels_test)
 
-main()
+    
+    x_train_tensor = torch.tensor(train_features, dtype=torch.float32).to(device)
+    y_train_tensor = torch.tensor(encoded_labels_train, dtype=torch.long).to(device)
+    x_test_tensor = torch.tensor(test_features, dtype=torch.float32).to(device)
+    y_test_tensor = torch.tensor(encoded_labels_test, dtype=torch.long).to(device)
+
+    train_dataset = TensorDataset(x_train_tensor, y_train_tensor)
+    test_dataset = TensorDataset(x_test_tensor, y_test_tensor)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+    
+    model = FTTransformer(
+        num_features=n_features,
+        num_classes=n_types,
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+        ff_dim=ff_dim,
+        num_layers=8,
+        dropout_rate=dropout_rate
+    ).to(device)
+
+    initialize_weights(model)
+
+    
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    criterion = FocalLoss(alpha=1, gamma=2)
+
+    history = train_and_evaluate(
+        model=model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        optimizer=optimizer,
+        criterion=criterion,
+        num_epochs=150,
+        device=device,
+        trial_number="best_model",
+        patience=100,
+        test_loader=test_loader  
+    )
+
+    
+    model.eval()
+    true_labels = []
+    predicted_labels = []
+    predicted_probs = []
+    with torch.no_grad():
+        for x_batch, y_batch in test_loader:
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
+            output = model(x_batch)
+            probs = F.softmax(output, dim=1)
+            _, predicted = torch.max(output, dim=1)
+            true_labels.extend(y_batch.cpu().numpy())
+            predicted_labels.extend(predicted.cpu().numpy())
+            predicted_probs.extend(probs.cpu().numpy())
+
+    final_acc = accuracy_score(true_labels, predicted_labels)
+    print(f"\nBest model final test accuracy: {final_acc:.4f}")
 
