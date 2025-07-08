@@ -1,0 +1,33 @@
+name: deepTGI
+channels:
+  - defaults
+  - conda-forge
+  - nvidia
+dependencies:
+  - python=3.10  
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - scikit-learn
+  - matplotlib
+  - seaborn
+  - tqdm
+  - pytorch=2.0  
+  - torchaudio
+  - cudatoolkit=11.8 
+  - pip:
+      - pytorch-lightning==2.0.0  
+      - tensorboardX  
+      - pytorchtools  
+      - tensorflow==2.13.0  
+      - opencv-python
+      - fastapi
+      - uvicorn
+      - requests
+      - h5py
+      - jupyterlab
+      - ipython
+      - ipykernel
+
+prefix: /environment/miniconda3
