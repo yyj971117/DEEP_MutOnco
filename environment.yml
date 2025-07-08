@@ -1,4 +1,5 @@
-name: deepTGI
+name: DEEP_MutOnco
+
 channels:
   - defaults
   - conda-forge
