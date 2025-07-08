@@ -142,5 +142,5 @@ python main.py
     > The following scripts are designed to work with different types of datasets. Please make sure to select the correct script based on the dataset you want to analyze:
      * main.py: This script is designed for classification tasks using the dataset.
      * main_os.py: This script is designed for survival analysis using the dataset.
-     Make sure to use the correct script based on whether you're analyzing classification or survival data.
+     * Make sure to use the correct script based on whether you're analyzing classification or survival data.
 
