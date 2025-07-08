@@ -27,7 +27,7 @@ SHAP analysis identifies known drivers (e.g., TP53, KRAS) as top contributors to
 
 # Overview
 <div align=center>
-<img src="https://github.com/yyj971117/DeepTGI/blob/main/Overview.png" height="600" width="800">
+<img src="https://github.com/yyj971117/DEEP_MutOnco/blob/main/Overview.jpg" height="600" width="800">
 </div>
 1. **Datasets**  
    - **AACR GENIE 14.0** for classification (38 tumor types; 43 971 samples)  
@@ -76,62 +76,71 @@ anndata
 tensorboardX
 pytorchtools
 ```
-For specific setting, please see <a href="https://github.com/yyj971117/DeepTGI/blob/main/environment.yml">requirement</a>.
+For specific setting, please see <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/environment.yml">requirement</a>.
 
 # Installation Guide
 ```
-$ git clone https://github.com/yyj971117/DeepTGI.git
+$ git clone https://github.com/yyj971117/DEEP_MutOnco.git
 $ conda env create -f environment.yml
-$ conda activate deepTGI
+$ conda activate DEEP_MutOnco
 ```
 # Detailed tutorials with example datasets
 `DEEP-MutOnco` is a deep learning framework that utilizes autoencoders and multi-head attention mechanisms to accurately identify interactions between transcription factors and genes and infer gene regulatory networks.
 
-The example can be seen in the <a href="https://github.com/yyj971117/DeepTGI/tree/main/DeepTGI/program/main.py">main.py</a>.
+The example can be seen in the <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/DEEP-MutOnco/program/main.py">main.py</a>.
 
 # DEEP-MutOnco
 
-DeepTGI Model
+DEEP-MutOnco Model
 
 ## Quick Start (Tested on Linux)
 
-  * Clone deepTGI repository
+  * Clone DEEP-MutOnco repository
 ```
-git clone https://github.com/yyj971117/DeepTGI.git
+git clone https://github.com/yyj971117/DEEP_MutOnco.git
 ```
-  * Go to deepTGI repository
+  * Go to DEEP-MutOnco repository
 ```
-cd deepTGI
+cd DEEP-MutOnco
 ```
   * Create conda environment
 ```
 conda env create -f environment.yml
 ```
-  * activate deepTGI environment
+  * activate DEEP-MutOnco environment
 ```
-conda activate deepTGI
+conda activate DEEP-MutOnco
 ```
  * Extract model files
-   > Before running the program, you need to extract the model files from the split archives located in /DeepTGI/test_R. Use the following command to extract the files：
+   > Before running the program, you need to extract the dataset files. Please follow the steps below based on your operating system：
+   > If you are using a Linux system and bzip2 is not installed, you can install it with the following command:
 ```
 sudo apt-get update
-sudo apt-get install p7zip-full
-7z x pred_nets.z01
-```  
+sudo apt-get install -y bzip2
+```
+   > Navigate to the data directory and use bunzip2 to extract all .bz2 files:
+```
+cd DEEP_MutOnco/dataset/data_class
+
+# Extract all .bz2 files
+for f in *.bz2; do
+    bunzip2 -k "$f"  # Use -k to keep the original compressed file
+done
+
+```
   * Update file paths in the code
     > Before running the program, ensure that any file paths used in the code are correctly updated to match your own directory structure. This is important because the default paths in the code may not align with where you have stored the necessary files. To do this, locate the file paths in the Python scripts (e.g., in `main.py`) and modify them to reflect the actual locations of your files on your system.
-    > For example, If the file path in the code is pd.read_csv('~/DeepTGI-main/DeepTGI/dataset/bulk_tf.csv'), change it to match your own directory structure.
+    > For example, If the file path in the code is pd.read_csv('~/DEEP-MutOnco/dataset/data_class/labels_test.csv'), change it to match your own directory structure.
 ```
-pd.read_csv('~/DeepTGI/dataset/bulk_tf.csv')
+pd.read_csv('~/DEEP-MutOnco/dataset/data_class/labels_test.csv')
 ```
   * Run the program
 ```
 python main.py
 ```
-* Choose the appropriate script based on the dataset
-    > The main.py, main_hESC.py, and main_mHSC.py scripts are designed to work with different datasets. Make sure to use the correct script according to the dataset you want to analyze:
-     * main.py is designed for the mESC dataset (mouse embryonic stem cells).
-     * main_hESC.py is designed for the human dataset (human embryonic stem cells).
-     * main_mHSC.py is designed for the mHSC-E and mHSC-L datasets (mouse hematopoietic stem cells in early and late stages).
-
+* Choose the Appropriate Script Based on the Dataset
+    > The following scripts are designed to work with different types of datasets. Please make sure to select the correct script based on the dataset you want to analyze:
+     * main.py: This script is designed for classification tasks using the dataset.
+     * main_os.py: This script is designed for survival analysis using the dataset.
+     Make sure to use the correct script based on whether you're analyzing classification or survival data.
 
