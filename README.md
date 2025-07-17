@@ -1,69 +1,79 @@
 # DEEP-MutOnco
 
+## Abstract
 
-This repository contains code, data, configurations, and plots to reproduce the results of **DEEP-MutOnco: A Two-Stage Deep Learning Framework for Tumor Type Classification and Survival Prognosis**.
-- [Abstract](#abstract)
-- [Overview](#overview)
-- [System Requirements](#system-requirements)
-- [Installation Guide](#installation-guide)
+### Background
+Precision oncology requires integrated molecular profiling for accurate tumor classification and risk stratification. Current machine learning models often address these tasks separately, limiting their clinical utility.
 
+### Model Introduction
+**DEEP-MutOnco** is a deep learning multi-task framework that simultaneously:
+- Integrates **multi-omics data**
+- Classifies **38 tumor types** 
+- Stratifies **survival risk**
 
-# Abstract
-Precision oncology relies on linking tumor molecular profiles to clinical outcomes. We present **DEEP-MutOnco**, a two-stage method:
+| Feature | Description |
+|---------|-------------|
+| **Multi-task Architecture** | Joint classification + survival analysis |
+| **Attention Mechanism** | Multi-head self-attention modules |
+| **Interpretability** | SHAP analysis for feature importance |
+| **Class Imbalance Handling** | Focal Loss implementation |
 
-1. **Classification stage**  
-   - Based on FT-Transformer with PPI and protein‐sequence embeddings  
-   - Trained on AACR Project GENIE v14.0 (38 cancer types; 43 971 MSK-IMPACT samples)  
-   - Outputs a 512-dimensional representation  
+#### Two-stage Strategy
 
-2. **Survival stage**  
-   - Features undergo variance filtering (threshold 0.001), correlation filtering (|r|>0.95) with OS time/status, and Z-score normalization  
-   - Fitted to Cox proportional hazards on MSK-CHORD (5 cancer types; 16 377 patients)  
-   - Achieves **C-index = 0.74**  
+**Stage 1: Tumor Classification**
+- Based on FT-Transformer with protein-protein interactions and protein‐sequence embeddings; Outputs a 512-dimensional representation
+- The MSK-IMPACT dataset was split into 37,000 samples for model training and 6,971 for independent testing (AACR Project GENIE v14.0)
+- Performance: 88.3% average accuracy (38 tumor types)
 
-SHAP analysis identifies known drivers (e.g., TP53, KRAS) as top contributors to both tasks, providing biological insights into model decisions.
+**Stage 2: Survival Risk Stratification**
+- The MSK-CHORD 2024 cohort with overall survival follow-up data was separated into 13,225 samples for model training and 3,153 for independent validation
+- Features undergo variance filtering (threshold 0.001), correlation filtering (|r|>0.95) with OS time/status, and Z-score normalization  
+- Model: Cox proportional hazards
+- Performance: C-index 0.74, significant risk stratification (log-rank p < 0.01), Kaplan-Meier curves clear separation between high- and low-risk groups
 
----
-
-# Overview
+## Overview
 <div align=center>
 <img src="https://github.com/yyj971117/DEEP_MutOnco/blob/main/Overview.jpg" height="600" width="800">
 </div>
-1. **Datasets**  
-   - **AACR GENIE 14.0** for classification (38 tumor types; 43 971 samples)  
-   - **MSK-CHORD (Nature 2024)** for survival (5 tumor types; 16 377 samples)  
 
-2. **Features**  
+**Figure 1. Schematic overview of the DEEP-MutOnco model workflow for multi-omics tumor analysis.** 
+
+1. **Data processing and feature selection**  
    - Binary mutation/indel, CNV focal & arm-level calls, MSI-sensor, mutational signatures  
    - PPI network metrics: degree, PageRank, betweenness  
-   - ESM2 embeddings + Euclidean/Cosine/Manhattan distances  
+   - ESM2 embeddings + Euclidean/Cosine/Manhattan distances
+   - Z-score normalization
+   - Gated Feature Selector
 
-3. **Model Architecture**  
-   - **FT-Transformer** backbone with Squeeze-Excitation & Gated Feature Selector  
-   - **Focal Loss** to handle class imbalance  
+2. **Model Architecture**  
+   - **FT-Transformer** backbone with multi-head self-attention modules, followed by feed-forward neural network components, Squeeze-and-Excitation and residual normalization
+   - **Focal Loss** to handle class imbalance
    - Softmax outputs over 38 classes  
 
-4. **Survival Analysis**  
+3. **Survival Analysis**  
    - Variance & correlation filtering, Z-score scaling  
    - **Cox Proportional Hazards** model  
    - Kaplan–Meier stratification and log-rank tests  
 
-5. **Interpretability**  
+4. **Interpretability**  
    - **Kernel SHAP** for global and per-cancer feature importance  
 
 ---
 
-# System Requirements
-## Hardware requirements
-`DEEP-MutOnco` requires only a standard computer with enough RAM to support the in-memory operations.
+## System Requirements
 
-## Software requirements
-### OS Requirements
-This package is supported for *Linux*. The package has been tested on the following systems:
-+ Linux: Ubuntu 18.04
+### Hardware Requirements
+`DEEP-MutOnco` requires a standard computer with sufficient RAM to support in-memory operations.
 
-### Python Dependencies
-`DEEP-MutOnco` mainly depends on the Python scientific stack.
+### Software Requirements
+
+#### OS Requirements
+This package is supported for **Linux**. The package has been tested on the following systems:
+- Linux: Ubuntu 18.04 (CUDA 11.8)
+- Linux: Ubuntu 22.04 (CUDA 12.4)
+
+#### Python Dependencies
+`DEEP-MutOnco` depends on the Python scientific stack:
 ```
 numpy
 scipy
@@ -75,72 +85,93 @@ scanpy
 anndata
 tensorboardX
 pytorchtools
+optuna
+shap
 ```
-For specific setting, please see <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/environment.yml">requirement</a>.
+For detailed requirements, see the <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/environment.yml">environment files</a>.
 
-# Installation Guide
-```
-$ git clone https://github.com/yyj971117/DEEP_MutOnco.git
-$ conda env create -f environment.yml
-$ conda activate DEEP_MutOnco
-```
-# Detailed tutorials with example datasets
-`DEEP-MutOnco` is a deep learning framework that utilizes autoencoders and multi-head attention mechanisms to accurately identify interactions between transcription factors and genes and infer gene regulatory networks.
+# Installation and Usage
 
-The example can be seen in the <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/DEEP-MutOnco/program/main.py">main.py</a>.
+## Installation Guide
 
-# DEEP-MutOnco
-
-DEEP-MutOnco Model
-
-## Quick Start (Tested on Linux)
-
-  * Clone DEEP-MutOnco repository
-```
+1. **Clone the repository**
+```bash
 git clone https://github.com/yyj971117/DEEP_MutOnco.git
-```
-  * Go to DEEP-MutOnco repository
-```
 cd DEEP-MutOnco
 ```
-  * Create conda environment
+
+2. **Create conda environment**
+```bash
+# For Ubuntu 18.04 (CUDA 11.8)
+conda env create -f environment_18.yml
+
+# For Ubuntu 22.04 (CUDA 12.4)
+conda env create -f environment_22.yml
 ```
-conda env create -f environment.yml
+
+3. **Activate the environment**
+```bash
+conda activate DEEP_MutOnco
 ```
-  * activate DEEP-MutOnco environment
-```
-conda activate DEEP-MutOnco
-```
- * Extract model files
-   > Before running the program, you need to extract the dataset files. Please follow the steps below based on your operating system：
-   > If you are using a Linux system and bzip2 is not installed, you can install it with the following command:
-```
+
+## Usage
+
+### Data Preparation
+
+1. **Install bzip2**
+```bash
 sudo apt-get update
 sudo apt-get install -y bzip2
 ```
-   > Navigate to the data directory and use bunzip2 to extract all .bz2 files:
-```
-cd DEEP_MutOnco/dataset/data_class
+
+2. **Extract dataset**
+```bash
+cd DEEP-MutOnco/dataset/data_class
 
 # Extract all .bz2 files
 for f in *.bz2; do
     bunzip2 -k "$f"  # Use -k to keep the original compressed file
 done
+```
 
-```
-  * Update file paths in the code
-    > Before running the program, ensure that any file paths used in the code are correctly updated to match your own directory structure. This is important because the default paths in the code may not align with where you have stored the necessary files. To do this, locate the file paths in the Python scripts (e.g., in `main.py`) and modify them to reflect the actual locations of your files on your system.
-    > For example, If the file path in the code is pd.read_csv('~/DEEP-MutOnco/dataset/data_class/labels_test.csv'), change it to match your own directory structure.
-```
-pd.read_csv('~/DEEP-MutOnco/dataset/data_class/labels_test.csv')
-```
-  * Run the program
-```
+3. **Update file paths**
+   > Update file paths in the Python scripts (e.g., lines 390-393, 396, 685-688, 692 in `main.py`; lines 633-636, 664 in `main_os.py`) to match your directory structure. For example, change `pd.read_csv('~/DEEP-MutOnco/dataset/data_class/labels_test.csv')` to reflect your actual file locations.
+
+### Running the Model
+
+Choose the appropriate script based on your analysis needs:
+
+- **Tumor classification only**: `main.py`
+  - Performs only **Stage 1 (tumor type classification)**
+  - Outputs classification results for 38 tumor types
+  
+- **Complete pipeline**: `main_os.py`
+  - Runs the full two-stage workflow
+  - **Stage 1: Tumor classification**
+  - **Stage 2: Survival risk stratification**
+
+### Example Usage
+```bash
+# Test data loading
+python -c "
+import pandas as pd
+df = pd.read_csv('DEEP-MutOnco/dataset/data_class/labels_test.csv')
+print(f'Dataset loaded successfully: {df.shape}')
+"
+
+# For tumor classification only
 python main.py
+# For complete pipeline (classification + survival analysis)
+python main_os.py
 ```
-* Choose the Appropriate Script Based on the Dataset
-    > The following scripts are designed to work with different types of datasets. Please make sure to select the correct script based on the dataset you want to analyze:
-     * main.py: This script is designed for classification tasks using the dataset.
-     * main_os.py: This script is designed for survival analysis using the dataset.
-     * Make sure to use the correct script based on whether you're analyzing classification or survival data.
 
+## Output
+
+The model will generate:
+- **Classification results**: Tumor type predictions with confidence scores
+- **Survival analysis**: Risk stratification with hazard ratios and survival curves
+- **Feature importance**: SHAP values for model interpretability
+
+## Issues
+
+If you encounter any problems, please open an issue on the GitHub repository.
