@@ -387,10 +387,10 @@ def objective(trial):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    data_train = pd.read_csv('~/GDD_ENS/ft_train_with_new_features.csv', sep=',', index_col=0)
-    data_test = pd.read_csv('~/GDD_ENS/ft_test_with_new_features.csv', sep=',', index_col=0)
-    labels_train = pd.read_csv('~/GDD_ENS/output/labels_train.csv', sep=',', index_col=0).squeeze('columns')
-    labels_test = pd.read_csv('~/GDD_ENS/output/labels_test.csv', sep=',', index_col=0).squeeze('columns')
+    data_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/ft_train_with_new_features.csv', sep=',', index_col=0)
+    data_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/ft_test_with_new_features.csv', sep=',', index_col=0)
+    labels_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/labels_train.csv', sep=',', index_col=0).squeeze('columns')
+    labels_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/labels_test.csv', sep=',', index_col=0).squeeze('columns')
 
     genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
     ppi_df = pd.read_csv('string_interactions.tsv', sep='\t')
@@ -682,10 +682,10 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
  
-    data_train = pd.read_csv('~/GDD_ENS/ft_train_with_new_features.csv', sep=',', index_col=0)
-    data_test = pd.read_csv('~/GDD_ENS/ft_test_with_new_features.csv', sep=',', index_col=0)
-    labels_train = pd.read_csv('~/GDD_ENS/output/labels_train.csv', sep=',', index_col=0).squeeze('columns')
-    labels_test = pd.read_csv('~/GDD_ENS/output/labels_test.csv', sep=',', index_col=0).squeeze('columns')
+    data_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/ft_train_with_new_features.csv', sep=',', index_col=0)
+    data_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/ft_test_with_new_features.csv', sep=',', index_col=0)
+    labels_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/labels_train.csv', sep=',', index_col=0).squeeze('columns')
+    labels_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/labels_test.csv', sep=',', index_col=0).squeeze('columns')
 
     
     genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
