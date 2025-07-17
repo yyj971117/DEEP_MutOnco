@@ -630,10 +630,10 @@ def shap_analysis(shap_values,
 
 if __name__ == "__main__":
    
-    data_train = pd.read_csv('~/work/GDD_ENS/data/data_training/ft_trainos.csv', sep=',', index_col=0)
-    data_test = pd.read_csv('~/work/GDD_ENS/data/data_training/ft_testos.csv', sep=',', index_col=0)
-    labels_train = pd.read_csv('~/work/GDD_ENS/output/labels_train1.csv', sep=',', index_col=0).squeeze('columns')
-    labels_test = pd.read_csv('~/work/GDD_ENS/output/labels_test1.csv', sep=',', index_col=0).squeeze('columns')
+    data_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/ft_trainos.csv', sep=',', index_col=0)
+    data_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/ft_testos.csv', sep=',', index_col=0)
+    labels_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/labels_train.csv', sep=',', index_col=0).squeeze('columns')
+    labels_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/labels_test.csv', sep=',', index_col=0).squeeze('columns')
     
     data_train['STAGE_HIGHEST_RECORDED'] = data_train['STAGE_HIGHEST_RECORDED'].fillna('Unknown').astype(str)
     data_test ['STAGE_HIGHEST_RECORDED'] = data_test ['STAGE_HIGHEST_RECORDED'].fillna('Unknown').astype(str)
@@ -661,7 +661,7 @@ if __name__ == "__main__":
     )
     
     genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
-    ppi_df = pd.read_csv('~/work/GDD_ENS/string_interactions.tsv', sep='\t')
+    ppi_df = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/string_interactions.tsv', sep='\t')
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
