@@ -230,7 +230,7 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, nu
                 correct_val += (predicted == y_batch).sum().item()
                 total_val += y_batch.size(0)
 
-                # 保存真实标签和预测的概率，以计算 AUC 和 AUPR
+                # Save true labels and predicted probabilities for AUC and AUPR calculation
                 all_true_labels.extend(y_batch.cpu().numpy())
                 all_probs.extend(F.softmax(output, dim=1).cpu().numpy())
 
@@ -239,7 +239,7 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, nu
         history['val_loss'].append(val_loss)
         history['val_acc'].append(val_acc)
 
-        # 计算 AUC 和 AUPR
+        # Calculate AUC and AUPR
         try:
             auc = roc_auc_score(all_true_labels, all_probs, multi_class='ovr')
         except ValueError:
@@ -260,7 +260,7 @@ def train_and_evaluate(model, train_loader, val_loader, optimizer, criterion, nu
               f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}, "
               f"AUC: {auc:.4f}, AUPR: {aupr:.4f}")
 
-        # 正确的写法：使用 f-string 格式化
+        # Correct usage: using f-string formatting
         plt.plot(history['train_loss'], label=f'Train Loss = {history["train_loss"][-1]:.4f}', linestyle='-', color='blue')
         plt.plot(history['val_loss'], label=f'Validation Loss = {history["val_loss"][-1]:.4f}', linestyle='-', color='red')
 
@@ -339,7 +339,7 @@ import numpy as np
 class MockTrial:
     def __init__(self, params, trial_number=None):
         self._params = params
-        self.number = trial_number  # Add the 'number' attribute
+        self.number = trial_number
 
     def suggest_categorical(self, name, choices):
         return self._params.get(name)
@@ -393,7 +393,7 @@ def objective(trial):
     labels_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/labels_test.csv', sep=',', index_col=0).squeeze('columns')
 
     genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
-    ppi_df = pd.read_csv('string_interactions.tsv', sep='\t')
+    ppi_df = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/string_interactions.tsv', sep='\t')
 
     train_features, test_features = process_data_with_global_attributes(data_train, data_test, ppi_df, genes, device)
     print("Train features shape:", train_features.shape)
@@ -569,7 +569,7 @@ def objective(trial):
             roc_auc = auc(fpr, tpr)
             plt.plot(fpr, tpr, label=f'{encoder.classes_[i]}: AUC = {roc_auc:.2f}')
         
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')  # 绘制随机猜测的对角线
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
         plt.title('Receiver Operating Characteristic (ROC) Curve for Each Class')
@@ -587,7 +587,7 @@ def objective(trial):
         plt.xlabel('Recall')
         plt.ylabel('Precision')
         plt.title('Precision-Recall Curve for Each Class')
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)  # 将图例移到图外
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
         plt.tight_layout() 
         plt.savefig('test_aupr_curve.png', dpi=300)
         plt.close()
@@ -619,7 +619,7 @@ def objective(trial):
         plt.xlabel('Recall')
         plt.ylabel('Precision')
         plt.title('Precision-Recall Curve for Each Class')
-        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)  # 图例移到图外，避免重叠
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=10)
         plt.tight_layout()  
         plt.savefig('precision_recall_curve.png', dpi=300)
         plt.close()
@@ -669,8 +669,8 @@ if __name__ == "__main__":
     
     study = optuna.create_study(direction="maximize")
     study.optimize(objective, n_trials=10)
-    print("最佳超参数:", study.best_params)
-    print("验证集最佳准确率:", study.best_value)
+    print("Best hyperparameters:", study.best_params)
+    print("Best validation accuracy:", study.best_value)
 
     best_params = study.best_params
     embed_dim = best_params["embed_dim"]
@@ -689,7 +689,7 @@ if __name__ == "__main__":
 
     
     genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
-    ppi_df = pd.read_csv('string_interactions.tsv', sep='\t')
+    ppi_df = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/string_interactions.tsv', sep='\t')
 
     
     train_features, test_features = process_data_with_global_attributes(
