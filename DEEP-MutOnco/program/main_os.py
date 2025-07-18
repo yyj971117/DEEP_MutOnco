@@ -5,6 +5,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_selection import VarianceThreshold
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -634,7 +635,7 @@ if __name__ == "__main__":
     data_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/ft_testos.csv', sep=',', index_col=0)
     labels_train = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/labels_train.csv', sep=',', index_col=0).squeeze('columns')
     labels_test = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/labels_test.csv', sep=',', index_col=0).squeeze('columns')
-    
+
     data_train['STAGE_HIGHEST_RECORDED'] = data_train['STAGE_HIGHEST_RECORDED'].fillna('Unknown').astype(str)
     data_test ['STAGE_HIGHEST_RECORDED'] = data_test ['STAGE_HIGHEST_RECORDED'].fillna('Unknown').astype(str)
 
@@ -660,8 +661,15 @@ if __name__ == "__main__":
         axis=1
     )
     
+    for col in data_train.columns:
+        if data_train[col].dtype == 'bool':
+            data_train[col] = data_train[col].astype(int)
+    for col in data_test.columns:
+        if data_test[col].dtype == 'bool':
+            data_test[col] = data_test[col].astype(int)
+    
     genes = data_train.loc[:, 'ABL1':'YES1'].columns.tolist()
-    ppi_df = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_os/string_interactions.tsv', sep='\t')
+    ppi_df = pd.read_csv('~/DEEP_MutOnco/DEEP-MutOnco/dataset/data_class/string_interactions.tsv', sep='\t')
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -763,7 +771,7 @@ if __name__ == "__main__":
             prostate_code = code
             break
     if prostate_code is None:
-        raise ValueError("在 cancer_name_map 中未找到 'Prostate.Cancer'。")
+        raise ValueError("'Prostate.Cancer' not found in cancer_name_map.")
     
     c_name = "Prostate.Cancer"
     
@@ -783,18 +791,18 @@ if __name__ == "__main__":
         else:
             binary_cols.append(col)
     
-    # 对 Continuous 列做标准化
+    # Standardize continuous columns
     scaler = StandardScaler()
     df_p_train[continuous_cols] = scaler.fit_transform(df_p_train[continuous_cols])
     df_p_test[continuous_cols]  = scaler.transform(df_p_test[continuous_cols])
     
-    # 4) 删除 nunique<=1 的列
+    # Remove columns with nunique <= 1
     drop_cols = [col for col in selected_feature_names if df_p_train[col].nunique() <= 1]
     if drop_cols:
-        print(f"[{c_name}] 删除 nunique≤1 列：{drop_cols}")
+        print(f"[{c_name}] Removing columns with nunique≤1: {drop_cols}")
     keep_cols = [c for c in selected_feature_names if c not in drop_cols]
     if len(keep_cols) == 0:
-        raise RuntimeError(f"[{c_name}] 删除恒定列后没有可用特征！")
+        raise RuntimeError(f"[{c_name}] No features available after removing constant columns!")
     
     df_p_train = df_p_train[keep_cols + ['OS_MONTHS', 'OS_STATUS']]
     df_p_test  = df_p_test[keep_cols + ['OS_MONTHS', 'OS_STATUS']]
@@ -806,15 +814,15 @@ if __name__ == "__main__":
     keep_after_var = [keep_cols[i] for i, keep in enumerate(mask_var) if keep]
     if len(keep_after_var) < len(keep_cols):
         removed = set(keep_cols) - set(keep_after_var)
-        print(f"[{c_name}] 方差阈值过滤后，删除列：{removed}")
+        print(f"[{c_name}] After variance threshold filtering, removed columns: {removed}")
     keep_cols = keep_after_var
     
     if len(keep_cols) == 0:
-        raise RuntimeError(f"[{c_name}] 方差过滤后无可用特征！")
+        raise RuntimeError(f"[{c_name}] No features available after variance filtering!")
     df_p_train = df_p_train[keep_cols + ['OS_MONTHS', 'OS_STATUS']]
     df_p_test  = df_p_test[keep_cols + ['OS_MONTHS', 'OS_STATUS']]
     
-    # 6) 高相关过滤（当任意两列 corr>0.9，就删掉后者那列）
+    # High correlation filtering (remove columns with correlation > 0.9)
     Xcorr = df_p_train[keep_cols].corr().abs()
     upper = Xcorr.where(np.triu(np.ones(Xcorr.shape), k=1).astype(bool))
     to_drop = set()
@@ -822,17 +830,17 @@ if __name__ == "__main__":
         high = [idx for idx in upper.index if upper.loc[idx, col] > 0.9]
         to_drop.update(high)
     if to_drop:
-        print(f"[{c_name}] 删除高度相关列：{to_drop}")
+        print(f"[{c_name}] Removing highly correlated columns: {to_drop}")
         keep_cols = [c for c in keep_cols if c not in to_drop]
     
     if len(keep_cols) == 0:
-        raise RuntimeError(f"[{c_name}] 高相关过滤后无特征！")
+        raise RuntimeError(f"[{c_name}] No features available after high correlation filtering!")
     df_p_train = df_p_train[keep_cols + ['OS_MONTHS', 'OS_STATUS']]
     df_p_test  = df_p_test[keep_cols + ['OS_MONTHS', 'OS_STATUS']]
     
     cox = CoxPHFitter(penalizer=0.1)
     cox.fit(df_p_train, duration_col='OS_MONTHS', event_col='OS_STATUS')
-    print(f"[{c_name}] Cox 拟合完成，系数预览：")
+    print(f"[{c_name}] Cox fitting completed, coefficient preview:")
     print(cox.summary)  
     
    
@@ -842,7 +850,7 @@ if __name__ == "__main__":
     explainer = shap.KernelExplainer(cox.predict_log_partial_hazard, background)
     X_test_np = df_p_test[keep_cols].to_numpy()
     
-    print(f"[{c_name}] 开始计算 SHAP（样本数={X_test_np.shape[0]}）……")
+    print(f"[{c_name}] Starting SHAP calculation (sample count={X_test_np.shape[0]})...")
     shap_vals = explainer.shap_values(X_test_np)
     
     
@@ -856,7 +864,7 @@ if __name__ == "__main__":
     plt.title(f"SHAP summary – {c_name}")
     plt.savefig(f"shap_summary_{c_name}.png", dpi=300)
     plt.close()
-    print(f"[{c_name}] 已保存 SHAP summary 图：shap_summary_{c_name}.png")
+    print(f"[{c_name}] SHAP summary plot saved: shap_summary_{c_name}.png")
     
     mean_abs = np.abs(shap_vals).mean(axis=0)
     ranking = [(keep_cols[i], float(mean_abs[i])) for i in np.argsort(-mean_abs)]
@@ -864,4 +872,4 @@ if __name__ == "__main__":
         "feature":       [f for f,_ in ranking],
         "mean_abs_shap": [v for _,v in ranking]
     }).to_csv(f"shap_importance_{c_name}.csv", index=False)
-    print(f"[{c_name}] 已保存 SHAP 排名：shap_importance_{c_name}.csv")
+    print(f"[{c_name}] SHAP importance ranking saved: shap_importance_{c_name}.csv")
