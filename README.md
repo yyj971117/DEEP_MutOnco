@@ -87,6 +87,8 @@ tensorboardX
 pytorchtools
 optuna
 shap
+lifelines
+networkx
 ```
 For detailed requirements, see the <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/environment.yml">environment files</a>.
 
@@ -124,13 +126,18 @@ sudo apt-get update
 sudo apt-get install -y bzip2
 ```
 
-2. **Extract dataset**
+2. **Extract dataset (.bz2 files)**
 ```bash
 cd DEEP-MutOnco/dataset/data_class
 
-# Extract all .bz2 files
 for f in *.bz2; do
-    bunzip2 -k "$f"  # Use -k to keep the original compressed file
+    bunzip2 -k "$f"
+done
+
+cd DEEP-MutOnco/dataset/data_os
+
+for f in *.bz2; do
+    bunzip2 -k "$f"
 done
 ```
 
@@ -175,3 +182,4 @@ The model will generate:
 ## Issues
 
 If you encounter any problems, please open an issue on the GitHub repository.
+
