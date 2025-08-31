@@ -1,4 +1,4 @@
-name: DEEP_MutOnco
+name: Deep-GV-utOnco
 
 channels:
   - pytorch
