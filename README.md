@@ -33,7 +33,7 @@ Precision oncology requires integrated molecular profiling for accurate tumor cl
 
 ## Overview
 <div align=center>
-<img src="https://github.com/yyj971117/DEEP_MutOnco/blob/main/Overview.jpg" height="800"  width="1000">
+<img src="https://github.com/yyj971117/DEEP_MutOnco/blob/main/Overview.png" height="800"  width="1000">
 </div>
 
 **Figure 1. Schematic overview of the Deep-GV-utOnco model workflow for multi-omics tumor analysis.** 
