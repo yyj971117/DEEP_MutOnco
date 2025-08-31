@@ -1,4 +1,4 @@
-# DEEP-MutOnco
+# Deep-GV-utOnco
 
 ## Abstract
 
@@ -6,7 +6,7 @@
 Precision oncology requires integrated molecular profiling for accurate tumor classification and risk stratification. Current machine learning models often address these tasks separately, limiting their clinical utility.
 
 ### Model Introduction
-**DEEP-MutOnco** is a deep learning multi-task framework that simultaneously:
+**Deep-GV-utOnco** is a deep learning multi-task framework that simultaneously:
 - Integrates **multi-omics data**
 - Classifies **38 tumor types** 
 - Stratifies **survival risk**
@@ -36,7 +36,7 @@ Precision oncology requires integrated molecular profiling for accurate tumor cl
 <img src="https://github.com/yyj971117/DEEP_MutOnco/blob/main/Overview.jpg" height="800"  width="1000">
 </div>
 
-**Figure 1. Schematic overview of the DEEP-MutOnco model workflow for multi-omics tumor analysis.** 
+**Figure 1. Schematic overview of the Deep-GV-utOnco model workflow for multi-omics tumor analysis.** 
 
 1. **Data processing and feature selection**  
    - Binary mutation/indel, CNV focal & arm-level calls, MSI-sensor, mutational signatures  
@@ -63,7 +63,7 @@ Precision oncology requires integrated molecular profiling for accurate tumor cl
 ## System Requirements
 
 ### Hardware Requirements
-`DEEP-MutOnco` requires a standard computer with sufficient RAM to support in-memory operations.
+`Deep-GV-utOnco` requires a standard computer with sufficient RAM to support in-memory operations.
 
 ### Software Requirements
 
@@ -73,7 +73,7 @@ This package is supported for **Linux**. The package has been tested on the foll
 - Linux: Ubuntu 22.04 (CUDA 12.4)
 
 #### Python Dependencies
-`DEEP-MutOnco` depends on the Python scientific stack:
+`Deep-GV-utOnco` depends on the Python scientific stack:
 ```
 numpy
 scipy
@@ -99,7 +99,7 @@ For detailed requirements, see the <a href="https://github.com/yyj971117/DEEP_Mu
 1. **Clone the repository**
 ```bash
 git clone https://github.com/yyj971117/DEEP_MutOnco.git
-cd DEEP-MutOnco
+cd Deep-GV-utOnco
 ```
 
 2. **Create conda environment**
@@ -128,13 +128,13 @@ sudo apt-get install -y bzip2
 
 2. **Extract dataset (.bz2 files)**
 ```bash
-cd DEEP-MutOnco/dataset/data_class
+cd Deep-GV-utOnco/dataset/data_class
 
 for f in *.bz2; do
     bunzip2 -k "$f"
 done
 
-cd DEEP-MutOnco/dataset/data_os
+cd Deep-GV-utOnco/dataset/data_os
 
 for f in *.bz2; do
     bunzip2 -k "$f"
@@ -142,7 +142,7 @@ done
 ```
 
 3. **Update file paths**
-   > Update file paths in the Python scripts (e.g., lines 390-393, 396, 685-688, 692 in `main.py`; lines 633-636, 664 in `main_os.py`) to match your directory structure. For example, change `pd.read_csv('~/DEEP-MutOnco/dataset/data_class/labels_test.csv')` to reflect your actual file locations.
+   > Update file paths in the Python scripts (e.g., lines 390-393, 396, 685-688, 692 in `main.py`; lines 633-636, 664 in `main_os.py`) to match your directory structure. For example, change `pd.read_csv('~/Deep-GV-utOnco/dataset/data_class/labels_test.csv')` to reflect your actual file locations.
 
 ### Running the Model
 
@@ -162,7 +162,7 @@ Choose the appropriate script based on your analysis needs:
 # Test data loading
 python -c "
 import pandas as pd
-df = pd.read_csv('DEEP-MutOnco/dataset/data_class/labels_test.csv')
+df = pd.read_csv('Deep-GV-utOnco/dataset/data_class/labels_test.csv')
 print(f'Dataset loaded successfully: {df.shape}')
 "
 
