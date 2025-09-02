@@ -33,7 +33,7 @@ Precision oncology requires integrated molecular profiling for accurate tumor cl
 
 ## Overview
 <div align=center>
-<img src="https://github.com/yyj971117/DEEP_MutOnco/blob/main/Overview.png" height="800"  width="1000">
+<img src="https://github.com/yyj971117/Deep-CANClassSurv/blob/main/Overview.png" height="800"  width="1000">
 </div>
 
 **Figure 1. Schematic overview of the Deep-CANClassSurv model workflow for multi-omics tumor analysis.** 
@@ -90,7 +90,7 @@ shap
 lifelines
 networkx
 ```
-For detailed requirements, see the <a href="https://github.com/yyj971117/DEEP_MutOnco/blob/main/environment.yml">environment files</a>.
+For detailed requirements, see the <a href="https://github.com/yyj971117/Deep-CANClassSurv/blob/main/environment.yml">environment files</a>.
 
 # Installation and Usage
 
@@ -98,7 +98,7 @@ For detailed requirements, see the <a href="https://github.com/yyj971117/DEEP_Mu
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yyj971117/DEEP_MutOnco.git
+git clone https://github.com/yyj971117/Deep-CANClassSurv.git
 cd Deep-CANClassSurv
 ```
 
@@ -113,7 +113,7 @@ conda env create -f environment_22.yml
 
 3. **Activate the environment**
 ```bash
-conda activate DEEP_MutOnco
+conda activate Deep-CANClassSurv
 ```
 
 ## Usage
