@@ -1,4 +1,4 @@
-name: Deep-GV-utOnco
+name: Deep-CANClassSurv
 
 channels:
   - defaults
